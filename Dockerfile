@@ -20,19 +20,18 @@ RUN apk add --no-cache \
     && rm -rf /var/cache/apk/*
 
 # Download, build and install Netpbm
-RUN set -eux; \
-    NETPBM_TAR="netpbm-${NETPBM_VERSION}.tgz"; \
+RUN NETPBM_TAR="netpbm-${NETPBM_VERSION}.tgz"; \
     wget -q "https://sourceforge.net/projects/netpbm/files/super_stable/${NETPBM_VERSION}/netpbm-${NETPBM_VERSION}.tgz" -O "${NETPBM_TAR}" && \
     tar -xzf "${NETPBM_TAR}" && \
     cd "netpbm-${NETPBM_VERSION}" && \
     # Build and install only the required components
 	# auto-confirm all input prompts
 	cd lib && \
-	while true ; do echo ; sleep 0.1; done | make BINARIES=pbmtog3 && \
+	while true ; do echo ; sleep 0.1; done | make BINARIES=pbmtog3 -j$(nproc) && \
     cp libnetpbm.so* /usr/local/lib/ && \
     ldconfig /usr/local/lib && \
 	cd ../converter/pbm/ && \
-	while true ; do echo ; sleep 0.1; done | make BINARIES=pbmtog3 && \
+	while true ; do echo ; sleep 0.1; done | make BINARIES=pbmtog3 -j$(nproc) && \
     cp pbmtog3 /usr/local/bin/ && \
     # Clean up
     cd ../../../ && \
