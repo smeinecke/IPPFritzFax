@@ -6,7 +6,7 @@ RUN apk add git make bash gcc vim
 RUN apk add patch
 RUN apk add musl-dev zlib-dev gnu-libiconv-dev musl-utils avahi-dev openssl-dev
 # ADD IPPFritzFax  /IPPFritzFax
-RUN apk add subversion libpng perl
+RUN apk add subversion libpng perl libjpeg-turbo-dev
 RUN svn checkout http://svn.code.sf.net/p/netpbm/code/stable netpbm     
 RUN cd netpbm/lib/     && \
 	while true ; do echo ; done | make BINARIES=pbmtog3      && \
