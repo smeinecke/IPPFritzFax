@@ -84,31 +84,54 @@ jobs:
       - name: Create manifest and push
         if: github.event_name != 'pull_request' && matrix.platform == 'linux/amd64'
         run: |
-          # Create and push a multi-arch manifest for the tags
-          export MANIFEST_TAGS=""
-          for tag in ${{ join(steps.meta.outputs.tags, ' ') }}; do
-            # Skip the SHA tag for the manifest
-            if [[ ! $tag == *"@sha256:"* ]]; then
-              MANIFEST_TAGS="$MANIFEST_TAGS ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${tag#*:}"
+          # Get the base image name without tag
+          IMAGE_BASE="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}"
+          
+          # Get the tags from the metadata output
+          TAGS="${{ steps.meta.outputs.tags }}"
+          
+          # Process each tag
+          for tag in $TAGS; do
+            # Extract just the tag part (after the last colon)
+            TAG_PART="${tag##*:}"
+            
+            # Skip if it's a SHA tag
+            if [[ "$TAG_PART" == sha-* ]]; then
+              echo "Skipping SHA tag: $tag"
+              continue
+            fi
+            
+            echo "Creating manifest for tag: $tag"
+            
+            # Create the manifest
+            docker manifest create $IMAGE_BASE:$TAG_PART \
+              --amend $IMAGE_BASE:$TAG_PART-amd64 \
+              --amend $IMAGE_BASE:$TAG_PART-arm64 \
+              --amend $IMAGE_BASE:$TAG_PART-armv7
+            
+            # Annotate the platform-specific manifests
+            docker manifest annotate $IMAGE_BASE:$TAG_PART $IMAGE_BASE:$TAG_PART-amd64 --arch amd64 --os linux
+            docker manifest annotate $IMAGE_BASE:$TAG_PART $IMAGE_BASE:$TAG_PART-arm64 --arch arm64 --os linux --variant v8
+            docker manifest annotate $IMAGE_BASE:$TAG_PART $IMAGE_BASE:$TAG_PART-armv7 --arch arm --os linux --variant v7
+            
+            # Push the manifest
+            echo "Pushing manifest for $IMAGE_BASE:$TAG_PART"
+            docker manifest push $IMAGE_BASE:$TAG_PART
+            
+            # If this is the 'main' tag, also tag it as 'latest'
+            if [[ "$TAG_PART" == "main" ]]; then
+              echo "Also tagging as 'latest'"
+              docker manifest create $IMAGE_BASE:latest \
+                --amend $IMAGE_BASE:$TAG_PART-amd64 \
+                --amend $IMAGE_BASE:$TAG_PART-arm64 \
+                --amend $IMAGE_BASE:$TAG_PART-armv7
+              
+              docker manifest annotate $IMAGE_BASE:latest $IMAGE_BASE:$TAG_PART-amd64 --arch amd64 --os linux
+              docker manifest annotate $IMAGE_BASE:latest $IMAGE_BASE:$TAG_PART-arm64 --arch arm64 --os linux --variant v8
+              docker manifest annotate $IMAGE_BASE:latest $IMAGE_BASE:$TAG_PART-armv7 --arch arm --os linux --variant v7
+              
+              docker manifest push $IMAGE_BASE:latest
             fi
           done
-          
-          if [ -n "$MANIFEST_TAGS" ]; then
-            # Create the manifest for each tag
-            for tag in $MANIFEST_TAGS; do
-              docker manifest create $tag \
-                --amend $tag-amd64 \
-                --amend ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${tag#*:}-arm64 \
-                --amend ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${tag#*:}-armv7
-              
-              # Annotate the platform-specific manifests
-              docker manifest annotate $tag ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${tag#*:}-amd64 --arch amd64 --os linux
-              docker manifest annotate $tag ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${tag#*:}-arm64 --arch arm64 --os linux --variant v8
-              docker manifest annotate $tag ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${tag#*:}-armv7 --arch arm --os linux --variant v7
-              
-              # Push the manifest
-              docker manifest push $tag
-            done
-          fi
         env:
           DOCKER_CLI_EXPERIMENTAL: enabled
