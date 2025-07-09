@@ -16,9 +16,9 @@ services:
       - "8632:8632"  # Web interface port
       - "5353:5353/udp"  # mDNS/avahi
     volumes:
-      - ./data/spool:/IPPFritzFax/spool
-      - ./data/crt:/IPPFritzFax/crt
-      - ./config:/IPPFritzFax/faxserver/conf.d
+      - ./data/spool:/app/spool
+      - ./data/crt:/app/crt
+      - ./config:/app/faxserver/conf.d
       - ./logs:/var/log/ippfritzfax
     cap_add:
       - NET_ADMIN  # Required for Avahi to work properly

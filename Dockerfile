@@ -20,18 +20,20 @@ RUN apk add --no-cache \
     && rm -rf /var/cache/apk/*
 
 # Download, build and install Netpbm
-RUN NETPBM_TAR="netpbm-${NETPBM_VERSION}.tgz"; \
+RUN set -eux; \
+    NETPBM_TAR="netpbm-${NETPBM_VERSION}.tgz"; \
     wget -q "https://sourceforge.net/projects/netpbm/files/super_stable/${NETPBM_VERSION}/netpbm-${NETPBM_VERSION}.tgz" -O "${NETPBM_TAR}" && \
     tar -xzf "${NETPBM_TAR}" && \
     cd "netpbm-${NETPBM_VERSION}" && \
     # Build and install only the required components
 	# auto-confirm all input prompts
+	while true ; do echo ; sleep 0.1; done | ./configure && \
 	cd lib && \
-	while true ; do echo ; sleep 0.1; done | make BINARIES=pbmtog3 && \
+	make BINARIES=pbmtog3 && \
     cp libnetpbm.so* /usr/local/lib/ && \
     ldconfig /usr/local/lib && \
 	cd ../converter/pbm/ && \
-	while true ; do echo ; sleep 0.1; done | make BINARIES=pbmtog3 && \
+	make BINARIES=pbmtog3 && \
     cp pbmtog3 /usr/local/bin/ && \
     # Clean up
     cd ../../../ && \
@@ -72,9 +74,17 @@ RUN set -eux; \
     perl perl-json perl-http-message \
     perl-file-slurp perl-libwww \
     perl-lwp-protocol-https html2text \
+    # Required for D-Bus and Avahi
+    dbus-x11 \
     # Optional dependencies
     # imagemagick poppler-utils \
     && rm -rf /var/cache/apk/*
+
+# Create necessary directories with correct permissions
+RUN mkdir -p /var/run/dbus \
+    && mkdir -p /var/spool/avahi \
+    && chown -R avahi:avahi /var/spool/avahi \
+    && chmod 755 /var/run/dbus /var/spool/avahi
 
 # Copy entrypoint and set permissions
 COPY entrypoint.sh /opt/entrypoint.sh
