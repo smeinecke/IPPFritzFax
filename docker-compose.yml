@@ -1,0 +1,38 @@
+version: '3.8'
+
+services:
+  ippfritzfax:
+    image: ghcr.io/smeinecke/ippfritzfax:latest
+    container_name: ippfritzfax
+    restart: unless-stopped
+    environment:
+      - TZ=Europe/Berlin  # Set your timezone
+      - USER=admin  # fritzbox username
+      - PASSWORD=change_me  # fritzbox password
+      - TEL=+49123456789  # Your fax number
+      - URL=http://fritz.box  # Your Fritz!Box URL
+    ports:
+      - "631:631"  # IPP port
+      - "8632:8632"  # Web interface port
+      - "5353:5353/udp"  # mDNS/avahi
+    volumes:
+      - ./data/spool:/IPPFritzFax/spool
+      - ./data/crt:/IPPFritzFax/crt
+      - ./config:/IPPFritzFax/faxserver/conf.d
+      - ./logs:/var/log/ippfritzfax
+    cap_add:
+      - NET_ADMIN  # Required for Avahi to work properly
+      - SYS_ADMIN
+    devices:
+      - /dev/net/tun  # Required for network access
+    network_mode: host  # Required for mDNS/avahi discovery
+    healthcheck:
+      test: ["CMD", "pgrep", "ippserver"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
