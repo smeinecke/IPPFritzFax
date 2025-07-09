@@ -84,8 +84,8 @@ jobs:
       - name: Create manifest and push
         if: github.event_name != 'pull_request' && matrix.platform == 'linux/amd64'
         run: |
-          # Get the base image name without tag
-          IMAGE_BASE="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}"
+          # Get the base image name without tag, ensuring it's lowercase
+          IMAGE_BASE="${{ env.REGISTRY }}/$(echo ${{ env.IMAGE_NAME }} | tr '[:upper:]' '[:lower:]')"
           
           # Get the tags from the metadata output
           TAGS="${{ steps.meta.outputs.tags }}"
