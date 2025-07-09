@@ -1,9 +1,9 @@
+# First stage: build
+FROM alpine AS build
+
 # Build arguments
 ARG NETPBM_VERSION=10.86.33
 ARG APP_DIR=/app
-
-# Build stage
-FROM alpine AS build
 
 # Set environment variables
 ENV NETPBM_VERSION=${NETPBM_VERSION} \
@@ -21,7 +21,7 @@ RUN apk add --no-cache \
 # Download, build and install Netpbm
 RUN set -eux; \
     NETPBM_TAR="netpbm-${NETPBM_VERSION}.tgz"; \
-    wget -q "https://sourceforge.net/projects/netpbm/files/super_stable/${NETPBM_VERSION}/netpbm-${NETPBM_VERSION}.tgz/download" -O "${NETPBM_TAR}" && \
+    wget -q "https://sourceforge.net/projects/netpbm/files/super_stable/${NETPBM_VERSION}/netpbm-${NETPBM_VERSION}.tgz" -O "${NETPBM_TAR}" && \
     tar -xzf "${NETPBM_TAR}" && \
     cd "netpbm-${NETPBM_VERSION}" && \
     # Build and install only the required components
@@ -34,7 +34,7 @@ RUN set -eux; \
     rm -rf "netpbm-${NETPBM_VERSION}" "${NETPBM_TAR}"
 
 # Copy application code and set up build environment
-WORKDIR ${APP_DIR}
+WORKDIR /app
 COPY . .
 
 # Configure git (required for some build processes)
@@ -51,6 +51,9 @@ RUN set -eux; \
 
 # Final stage
 FROM alpine
+
+# Re-declare ARG for this build stage
+ARG APP_DIR=/app
 
 # Set environment variables
 ENV APP_DIR=/app \
@@ -74,7 +77,7 @@ COPY entrypoint.sh /opt/entrypoint.sh
 RUN chmod +x /opt/entrypoint.sh
 
 # Set working directory
-WORKDIR ${APP_DIR}
+WORKDIR /app
 
 # Copy required files from build stage
 COPY --from=build ${APP_DIR}/pkg.tar .
