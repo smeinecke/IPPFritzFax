@@ -2,8 +2,8 @@ FROM alpine AS build
 
 RUN apk  upgrade
 # RUN apk -get update --fix-missing
-RUN apk add make bash gcc vim
-RUN apk add patch git
+RUN apk add git make bash gcc vim
+RUN apk add patch
 RUN apk add musl-dev zlib-dev gnu-libiconv-dev musl-utils avahi-dev openssl-dev
 # ADD IPPFritzFax  /IPPFritzFax
 RUN apk add subversion libpng perl libjpeg-turbo-dev
@@ -16,10 +16,12 @@ RUN cd netpbm/lib/     && \
 	cp pbmtog3 /usr/local/bin/.
 
 ADD .  /IPPFritzFax
+# RUN git clone http://github.com/thilo-hub/IPPFritzFax.git
 
 WORKDIR IPPFritzFax
 
-
+RUN git config --global user.email "you@example.com"
+RUN git config --global user.name "Your Name"
 RUN make install
 RUN mkdir -p faxserver/lib spool crt
 #RUN cp install/lib/*.so* faxserver/lib/.
