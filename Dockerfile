@@ -28,11 +28,11 @@ RUN set -eux; \
     # Build and install only the required components
 	# auto-confirm all input prompts
 	cd lib && \
-	while true ; do echo ; done | make BINARIES=pbmtog3 && \
+	while true ; do echo ; sleep 0.1; done | make BINARIES=pbmtog3 && \
     cp libnetpbm.so* /usr/local/lib/ && \
     ldconfig /usr/local/lib && \
 	cd ../converter/pbm/ && \
-	while true ; do echo ; done | make BINARIES=pbmtog3 && \
+	while true ; do echo ; sleep 0.1; done | make BINARIES=pbmtog3 && \
     cp pbmtog3 /usr/local/bin/ && \
     # Clean up
     cd ../../../ && \
