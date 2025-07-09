@@ -9,35 +9,51 @@ ARG APP_DIR=/app
 ENV NETPBM_VERSION=${NETPBM_VERSION} \
     APP_DIR=${APP_DIR}
 
-# Install build dependencies and tools
+# Install build dependencies and tools including ccache
 RUN apk add --no-cache \
     git make bash gcc vim patch \
     musl-dev zlib-dev gnu-libiconv-dev \
     musl-utils avahi-dev openssl-dev \
     libpng-dev perl libjpeg-turbo-dev \
     wget tar xz pkgconfig libxml2-dev \
-    linux-headers \
-    && rm -rf /var/cache/apk/*
+    linux-headers ccache \
+    && rm -rf /var/cache/apk/* \
+    && mkdir -p /root/.ccache
 
-# Download, build and install Netpbm
+# Configure ccache
+ENV CCACHE_DIR=/root/.ccache \
+    CCACHE_COMPRESS=1 \
+    CCACHE_COMPRESSLEVEL=6 \
+    CCACHE_MAXSIZE=2G \
+    CCACHE_SLOPPINESS=file_macro,include_file_mtime,time_macros \
+    CCACHE_UMASK=002 \
+    CCACHE_NOHASHDIR=1 \
+    PATH="/usr/lib/ccache/bin:$PATH"
+
+# Download, build and install Netpbm with ccache
 RUN set -eux; \
     NETPBM_TAR="netpbm-${NETPBM_VERSION}.tgz"; \
     wget -q "https://sourceforge.net/projects/netpbm/files/super_stable/${NETPBM_VERSION}/netpbm-${NETPBM_VERSION}.tgz" -O "${NETPBM_TAR}" && \
     tar -xzf "${NETPBM_TAR}" && \
     cd "netpbm-${NETPBM_VERSION}" && \
     # Build and install only the required components
-	# auto-confirm all input prompts
-	while true ; do echo ; sleep 0.1; done | ./configure && \
-	cd lib && \
+    # auto-confirm all input prompts and enable ccache
+    while true ; do echo ; sleep 0.1; done | \
+    CC="ccache gcc" \
+    CXX="ccache g++" \
+    ./configure && \
+    cd lib && \
 	make BINARIES=pbmtog3 && \
     cp libnetpbm.so* /usr/local/lib/ && \
     ldconfig /usr/local/lib && \
-	cd ../converter/pbm/ && \
+    cd ../converter/pbm/ && \
 	make BINARIES=pbmtog3 && \
     cp pbmtog3 /usr/local/bin/ && \
     # Clean up
     cd ../../../ && \
-    rm -rf "netpbm-${NETPBM_VERSION}" "${NETPBM_TAR}"
+    rm -rf "netpbm-${NETPBM_VERSION}" "${NETPBM_TAR}" \
+    # Show ccache statistics
+    && ccache -s
 
 # Copy application code and set up build environment
 WORKDIR /app
@@ -49,7 +65,9 @@ RUN git config --global user.email "docker@example.com" && \
 
 # Build and package the application
 RUN set -eux; \
-    make install && \
+	CC="ccache gcc" \
+	CXX="ccache g++" \
+	make install && \
     mkdir -p faxserver/lib spool crt && \
     apk add --no-cache tar && \
     tar chf pkg.tar faxserver bin spool crt lib install/lib/*.so*
