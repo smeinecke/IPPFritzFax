@@ -2,7 +2,7 @@
 FROM alpine AS build
 
 # Build arguments
-ARG NETPBM_VERSION=10.86.33
+ARG NETPBM_VERSION=10.86.47
 ARG APP_DIR=/app
 
 # Set environment variables
