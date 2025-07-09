@@ -27,13 +27,15 @@ RUN set -eux; \
     cd "netpbm-${NETPBM_VERSION}" && \
     # Build and install only the required components
 	# auto-confirm all input prompts
-	(cd lib && while true ; do echo ; done | make -j$(nproc) BINARIES=pbmtog3) && \
-    cp lib/libnetpbm.so* /usr/local/lib/ && \
+	cd lib && \
+	while true ; do echo ; done | make BINARIES=pbmtog3 && \
+    cp libnetpbm.so* /usr/local/lib/ && \
     ldconfig /usr/local/lib && \
-	(cd converter/pbm/ && while true ; do echo ; done | make -j$(nproc) BINARIES=pbmtog3) && \
-    cp converter/pbm/pbmtog3 /usr/local/bin/ && \
+	cd converter/pbm/ && \
+	while true ; do echo ; done | make BINARIES=pbmtog3 && \
+    cp pbmtog3 /usr/local/bin/ && \
     # Clean up
-    cd .. && \
+    cd ../../../ && \
     rm -rf "netpbm-${NETPBM_VERSION}" "${NETPBM_TAR}"
 
 # Copy application code and set up build environment
