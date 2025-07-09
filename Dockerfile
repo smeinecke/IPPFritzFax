@@ -1,54 +1,94 @@
+# Build arguments
+ARG NETPBM_VERSION=10.86.33
+ARG APP_DIR=/app
+
+# Build stage
 FROM alpine AS build
 
-RUN apk  upgrade
-# RUN apk -get update --fix-missing
-RUN apk add git make bash gcc vim
-RUN apk add patch
-RUN apk add musl-dev zlib-dev gnu-libiconv-dev musl-utils avahi-dev openssl-dev
-# ADD IPPFritzFax  /IPPFritzFax
-RUN apk add subversion libpng perl libjpeg-turbo-dev
-RUN svn checkout http://svn.code.sf.net/p/netpbm/code/stable netpbm
-RUN cd netpbm/lib/     && \
-	while true ; do echo ; done | make BINARIES=pbmtog3      && \
-	 tar cf - libnetpbm.so* | tar xvf - -C /usr/local/lib    && \
-	cd ../converter/pbm/                                        && \
-	while true ; do echo ; done | make BINARIES=pbmtog3      && \
-	cp pbmtog3 /usr/local/bin/.
+# Set environment variables
+ENV NETPBM_VERSION=${NETPBM_VERSION} \
+    APP_DIR=${APP_DIR}
 
-ADD .  /IPPFritzFax
-# RUN git clone http://github.com/thilo-hub/IPPFritzFax.git
+# Install build dependencies and tools
+RUN apk add --no-cache \
+    git make bash gcc vim patch \
+    musl-dev zlib-dev gnu-libiconv-dev \
+    musl-utils avahi-dev openssl-dev \
+    libpng perl libjpeg-turbo-dev \
+    wget tar xz \
+    && rm -rf /var/cache/apk/*
 
-WORKDIR IPPFritzFax
+# Download, build and install Netpbm
+RUN set -eux; \
+    NETPBM_TAR="netpbm-${NETPBM_VERSION}.tgz"; \
+    wget -q "https://sourceforge.net/projects/netpbm/files/super_stable/${NETPBM_VERSION}/netpbm-${NETPBM_VERSION}.tgz/download" -O "${NETPBM_TAR}" && \
+    tar -xzf "${NETPBM_TAR}" && \
+    cd "netpbm-${NETPBM_VERSION}" && \
+    # Build and install only the required components
+    (cd lib && make -j$(nproc) BINARIES=pbmtog3) && \
+    cp lib/libnetpbm.so* /usr/local/lib/ && \
+    (cd converter/pbm/ && make -j$(nproc) BINARIES=pbmtog3) && \
+    cp converter/pbm/pbmtog3 /usr/local/bin/ && \
+    # Clean up
+    cd .. && \
+    rm -rf "netpbm-${NETPBM_VERSION}" "${NETPBM_TAR}"
 
-RUN git config --global user.email "you@example.com"
-RUN git config --global user.name "Your Name"
-RUN make install
-RUN mkdir -p faxserver/lib spool crt
-#RUN cp install/lib/*.so* faxserver/lib/.
-#RUN cp install/sbin/ippserver faxserver/bin/.
-RUN apk add tar
-RUN tar chvf pkg.tar faxserver bin spool crt lib install/lib/*.so*
+# Copy application code and set up build environment
+WORKDIR ${APP_DIR}
+COPY . .
+
+# Configure git (required for some build processes)
+RUN git config --global user.email "docker@example.com" && \
+    git config --global user.name "Docker Build"
+
+# Build and package the application
+RUN set -eux; \
+    make install && \
+    mkdir -p faxserver/lib spool crt && \
+    apk add --no-cache tar && \
+    tar chf pkg.tar faxserver bin spool crt lib install/lib/*.so*
 
 
-###
-### here collect binaries from previous build step
+# Final stage
 FROM alpine
-RUN apk add --no-cache avahi augeas dbus
-RUN apk add bash
-RUN apk add perl perl-json perl-http-message perl-file-slurp perl-libwww perl-lwp-protocol-https html2text
-##  Optional: imagemagick poppler-utils
+
+# Set environment variables
+ENV APP_DIR=/app \
+    LD_LIBRARY_PATH=/app/install/lib \
+    PATH=/app/bin:/app/faxserver/bin:$PATH
+
+# Install runtime dependencies
+RUN set -eux; \
+    apk add --no-cache \
+    avahi augeas dbus \
+    bash \
+    perl perl-json perl-http-message \
+    perl-file-slurp perl-libwww \
+    perl-lwp-protocol-https html2text \
+    # Optional dependencies
+    # imagemagick poppler-utils \
+    && rm -rf /var/cache/apk/*
+
+# Copy entrypoint and set permissions
 COPY entrypoint.sh /opt/entrypoint.sh
-WORKDIR IPPFritzFax
-COPY --from=build /IPPFritzFax/faxserver /IPPFritzFax/faxserver
-COPY --from=build /IPPFritzFax/lib /IPPFritzFax//lib
-COPY --from=build /IPPFritzFax/bin /IPPFritzFax/bin
-COPY --from=build /usr/local/lib/libnetpbm* /usr/local/lib/.
-COPY --from=build /usr/local/bin/pbm* /usr/local/bin/.
-COPY --from=build /IPPFritzFax/pkg.tar  .
-RUN tar xvf pkg.tar
-RUN rm pkg.tar
-RUN chmod a+x  /IPPFritzFax/bin/*.pl /IPPFritzFax/faxserver/bin/*
-ENV LD_LIBRARY_PATH=/IPPFritzFax/install/lib
-ENV PATH=/IPPFritzFax/bin:/IPPFritzFax/faxserver/bin:$PATH
-### ENTRYPOINT /bin/bash
+RUN chmod +x /opt/entrypoint.sh
+
+# Set working directory
+WORKDIR ${APP_DIR}
+
+# Copy required files from build stage
+COPY --from=build ${APP_DIR}/pkg.tar .
+RUN tar xf pkg.tar && \
+    rm pkg.tar && \
+    chmod a+x bin/*.pl faxserver/bin/*
+
+# Copy Netpbm libraries from build stage
+COPY --from=build /usr/local/lib/libnetpbm.so* /usr/local/lib/
+COPY --from=build /usr/local/bin/pbmtog3 /usr/local/bin/
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD pgrep ippserver >/dev/null || exit 1
+
+# Set the entrypoint
 ENTRYPOINT ["/opt/entrypoint.sh"]
