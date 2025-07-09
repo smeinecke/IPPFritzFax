@@ -31,7 +31,7 @@ RUN set -eux; \
 	while true ; do echo ; done | make BINARIES=pbmtog3 && \
     cp libnetpbm.so* /usr/local/lib/ && \
     ldconfig /usr/local/lib && \
-	cd converter/pbm/ && \
+	cd ../converter/pbm/ && \
 	while true ; do echo ; done | make BINARIES=pbmtog3 && \
     cp pbmtog3 /usr/local/bin/ && \
     # Clean up
