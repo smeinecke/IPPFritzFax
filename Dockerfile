@@ -25,23 +25,12 @@ RUN set -eux; \
     wget -q "https://sourceforge.net/projects/netpbm/files/super_stable/${NETPBM_VERSION}/netpbm-${NETPBM_VERSION}.tgz" -O "${NETPBM_TAR}" && \
     tar -xzf "${NETPBM_TAR}" && \
     cd "netpbm-${NETPBM_VERSION}" && \
-    # Configure with supported features based on installed dependencies
-    echo "" | ./configure \
-        --enable-shared \
-        --disable-static \
-        --with-png \
-        --with-jpeg \
-        --disable-jbig \
-        --disable-jasper \
-        --disable-tiff \
-        --disable-zlib \
-        --disable-x11 \
-        --disable-rpath && \
     # Build and install only the required components
-    (cd lib && make -j$(nproc) BINARIES=pbmtog3) && \
+	# auto-confirm all input prompts
+	(cd lib && while true ; do echo ; done | make -j$(nproc) BINARIES=pbmtog3) && \
     cp lib/libnetpbm.so* /usr/local/lib/ && \
     ldconfig /usr/local/lib && \
-    (cd converter/pbm/ && make -j$(nproc) BINARIES=pbmtog3) && \
+	(cd converter/pbm/ && while true ; do echo ; done | make -j$(nproc) BINARIES=pbmtog3) && \
     cp converter/pbm/pbmtog3 /usr/local/bin/ && \
     # Clean up
     cd .. && \
